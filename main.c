@@ -13,7 +13,7 @@ int main(){
     uint32_t idx;
     l = lookup_init();
     lookup_load(l, "networks");
-
+    lookup_dump(l);
     fp = fopen("ips", "r");
     while(fgets(buff, 255, fp)){
         if(inet_pton(AF_INET, buff, &sa.sin_addr) == 1){
@@ -21,7 +21,7 @@ int main(){
             idx = lookup_search(l, sa.sin_addr);
         }
     }
-    
+
     lookup_free(l);
     fclose(fp);
 }

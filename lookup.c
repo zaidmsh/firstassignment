@@ -36,9 +36,18 @@ bool lookup_load(lookup_t * handle, const char * filename){
         i++;
     }
     handle->size = i;
-    
+
     fclose(fp);
 
+    return true;
+}
+
+bool lookup_dump(lookup_t * handle){
+    char buff[1024];
+    for(uint16_t i =0; i < handle->size; i++){
+        inet_ntop(AF_INET, &handle->networks[i].network, buff, 1024);
+        printf("%s/%d\n", buff, handle->networks[i].netmask);
+    }
     return true;
 }
 bool lookup_search(lookup_t * handle, struct in_addr ip){
