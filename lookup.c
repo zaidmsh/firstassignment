@@ -59,7 +59,8 @@ bool lookup_load(lookup_t * handle, const char * filename){
 
 bool lookup_dump(lookup_t * handle){
     char buff[1024];
-    for(uint16_t i =0; i < handle->size; i++){
+    uint16_t i;
+    for(i =0; i < handle->size; i++){
         inet_ntop(AF_INET, &handle->networks[i].network, buff, 1024);
         printf("%s/%d\n", buff, handle->networks[i].netmask);
     }

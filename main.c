@@ -27,4 +27,5 @@ int main(){
         fclose(fp);
     }
     lookup_free(l);
+    return 0;
 }

@@ -1,5 +1,6 @@
+CC=gcc
 CFLAGS=-Wall -O3 `pkg-config --cflags glib-2.0`
-LDFLAGS= -L.
+LDFLAGS=
 LDLIBS=`pkg-config --libs glib-2.0`
 
 OBJS=main.o lookup.o

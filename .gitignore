@@ -2,3 +2,5 @@ main
 *.o
 networks
 ips
+gmon.out
+analysis.txt
