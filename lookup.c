@@ -36,9 +36,7 @@ bool lookup_load(lookup_t * handle, const char * filename){
         i++;
     }
     handle->size = i;
-
     fclose(fp);
-
     return true;
 }
 
@@ -50,9 +48,36 @@ bool lookup_dump(lookup_t * handle){
     }
     return true;
 }
+
 bool lookup_search(lookup_t * handle, struct in_addr ip){
+    uint16_t i;
+    uint16_t index;
+    struct in_addr netmask;
+    struct in_addr network;
+    char buff[1024];
+    uint32_t nmask = 0;
+
+    for(i = 0;i < handle->size; i++){
+        netmask.s_addr = 0xffffffff >> (32 - handle->networks[i].netmask);
+        network.s_addr = ip.s_addr & netmask.s_addr;
+        if(nmask >= handle->networks[i].netmask){
+            continue;
+        }
+        //printf("here\n");
+        if(handle->networks[i].network.s_addr == network.s_addr){
+            nmask = handle->networks[i].netmask;
+            index = i + 1;
+        }
+    }
+    if(nmask == 0){
+        return false;
+    }
+    // printf("ip found in  index:%d \n", index);
+    // inet_ntop(AF_INET, &network, buff, 1024);
+    // printf("%0x %s\n", netmask.s_addr, buff);
     return true;
 }
+
 bool lookup_free(lookup_t * handle){
     free(handle->networks);
     free(handle);
