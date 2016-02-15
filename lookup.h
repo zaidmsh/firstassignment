@@ -2,16 +2,19 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <glib.h>
+
 
 struct network_s {
-    uint8_t netmask;
     struct in_addr network;
+    uint32_t netmask;
 };
 typedef struct network_s network_t;
 
 struct lookup_s {
     uint32_t size;
     network_t * networks;
+    GHashTable * hash;
 };
 typedef struct lookup_s lookup_t;
 

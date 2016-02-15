@@ -13,7 +13,7 @@ int main(){
     l = lookup_init();
     lookup_load(l, "networks");
     //lookup_dump(l);
-    for(i = 0; i<20; i++){
+    for(i = 0; i<100; i++){
         fp = fopen("ips", "r");
         while(fgets(buff, 255, fp)){
             len =  strlen(buff);
