@@ -12,20 +12,22 @@ int main(){
     uint32_t len, i;
     l = lookup_init();
     lookup_load(l, "networks");
-    //lookup_dump(l);
-    for(i = 0; i<100; i++){
-        fp = fopen("ips", "r");
-        while(fgets(buff, 255, fp)){
-            len =  strlen(buff);
-            buff[len - 1] = 0;
-            if(inet_pton(AF_INET, buff, &addr) != 1){
-                printf("inet_pton: Failed\n");
-                break;
-            }
+    lookup_dump(l);
+    return 0;
+    fp = fopen("ips", "r");
+    while(fgets(buff, 255, fp)){
+        len =  strlen(buff);
+        buff[len - 1] = 0;
+        if(inet_pton(AF_INET, buff, &addr) != 1){
+            printf("inet_pton: Failed\n");
+            break;
+        }
+        for(i = 0; i<1000; i++){
             lookup_search(l, addr);
         }
-        fclose(fp);
     }
+    fclose(fp);
+
     lookup_free(l);
     return 0;
 }

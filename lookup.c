@@ -6,8 +6,10 @@
 #include "lookup.h"
 #define HASHTABLE
 
+
 guint network_hash(gconstpointer key);
 gboolean network_equal(gconstpointer key1, gconstpointer key2);
+int network_compare(const void * a, const void * b);
 
 lookup_t * lookup_init(){
     lookup_t * l;
@@ -38,22 +40,23 @@ bool lookup_load(lookup_t * handle, const char * filename){
         //extract the mask part
         p = strsep(&string, de);
         ret = strtol(p, NULL, 10);
-#ifdef HASHTABLE
+// #ifdef HASHTABLE
         //insert network in hashtable
         network = calloc(1, sizeof(network_t));
         network->network = addr;
         network->netmask = ret;
         g_hash_table_add(handle->hash, network);
-#else
+// #else
         //insert network
         handle->networks[i].network = addr;
         handle->networks[i].netmask = ret;
         i++;
-#endif
+// #endif
     }
     handle->size = i;
     fclose(fp);
     printf("Hash size: %d\n", g_hash_table_size(handle->hash));
+    qsort(handle->networks, handle->size, sizeof(network_t), network_compare);
     return true;
 }
 
@@ -82,7 +85,7 @@ bool lookup_search(lookup_t * handle, struct in_addr ip){
         key.netmask = i;
         if(g_hash_table_lookup_extended(handle->hash, &key, NULL, NULL)){
             inet_ntop(AF_INET, &network, buff, 1000);
-            printf("found:%s/%d\n", buff, i);
+            //printf("found:%s/%d\n", buff, i);
             return true;
         }
     }
@@ -152,8 +155,11 @@ uint32_t hashfnv1a_32(const void *data, uint32_t nbytes)
 guint network_hash(gconstpointer key)
 {
     guint hval;
+    network_t * k;
 
+    k = (network_t *)key;
     hval = hashfnv1a_32(key, sizeof(network_t));
+    // hval = (guint)(k->network.s_addr ^ k->netmask);
     return hval;
 }
 gboolean network_equal(gconstpointer key1, gconstpointer key2)
@@ -164,4 +170,18 @@ gboolean network_equal(gconstpointer key1, gconstpointer key2)
     k1 = (network_t*)key1;
     k2 = (network_t*)key2;
     return (k1->network.s_addr == k2->network.s_addr) && (k1->netmask == k2->netmask);
+}
+
+int network_compare(const void * a, const void * b)
+{
+    network_t * n1 = (network_t *) a;
+    network_t * n2 = (network_t *) b;
+
+    if(ntohl(n1->network.s_addr) > ntohl(n2->network.s_addr)) {
+        return 1;
+    } else if(ntohl(n1->network.s_addr) < ntohl(n2->network.s_addr)) {
+        return -1;
+    } else {
+        return n1->netmask - n2->netmask;
+    }
 }
