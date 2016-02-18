@@ -19,6 +19,17 @@ struct lookup_s {
 };
 typedef struct lookup_s lookup_t;
 
+struct index_s {
+    uint16_t offset;
+    uint16_t len;
+};
+typedef struct index_s index_t;
+
+struct range_s {
+    uint16_t addr;
+    uint16_t hop;
+};
+typedef struct range_s range_t;
 
 lookup_t * lookup_init();
 bool lookup_load(lookup_t * handle, const char * filename);

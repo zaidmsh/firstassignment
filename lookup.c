@@ -279,6 +279,27 @@ bool create_ranges(lookup_t * handle)
         printf("%d %s %c\n", i + 1, buff, l2[i].hop);
     }
 
+    //Constructing the index and range tables
+    index_t * index;
+    range_t * range;
+    uint32_t start_high, end_high, k;
+    index = (index_t *)calloc(0xffff, sizeof(index_t));
+    range = (range_t *)calloc(j, sizeof(range_t));
+
+    for (i = 0; i < j; i++){
+        start_high = ntohl(l2[i].network.s_addr) >> 16;
+        end_high = ntohl(l2[i + 1].network.s_addr) >> 16;
+        for (k = start_high; k < end_high; k++) {
+            // insert l2[i].hop
+            index[k].offset = (uint8_t)(l2[i].hop);
+            printf(".");
+        }
+        printf("\n");
+    }
+
+
+    free(index);
+    free(range);
     free(l1);
     free(l2);
     return true;
