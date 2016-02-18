@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -pg -O3 `pkg-config --cflags glib-2.0`
+CFLAGS=-Wall -g -O3 `pkg-config --cflags glib-2.0`
 LDFLAGS=-pg
 LDLIBS=`pkg-config --libs glib-2.0`
 

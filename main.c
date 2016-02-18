@@ -12,7 +12,7 @@ int main(){
     uint32_t len, i;
     l = lookup_init();
     lookup_load(l, "networks");
-    lookup_dump(l);
+    // lookup_dump(l);
     return 0;
     fp = fopen("ips", "r");
     while(fgets(buff, 255, fp)){

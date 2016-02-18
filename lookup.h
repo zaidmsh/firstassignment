@@ -8,6 +8,7 @@
 struct network_s {
     struct in_addr network;
     uint32_t netmask;
+    char hop;
 };
 typedef struct network_s network_t;
 

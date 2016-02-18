@@ -4,3 +4,7 @@ networks
 ips
 gmon.out
 analysis.txt
+networks_sorted
+networks2
+networks_long
+main.dSYM/

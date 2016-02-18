@@ -10,7 +10,7 @@
 guint network_hash(gconstpointer key);
 gboolean network_equal(gconstpointer key1, gconstpointer key2);
 int network_compare(const void * a, const void * b);
-
+bool create_ranges(lookup_t *);
 lookup_t * lookup_init(){
     lookup_t * l;
     l = calloc(1, sizeof(lookup_t));
@@ -23,14 +23,15 @@ bool lookup_load(lookup_t * handle, const char * filename){
     FILE *fp;
     char buff[255];
     char * p, * string;
-    char de[] = "/\n";
-    uint8_t ret;
+    char de[] = "/ \n";
+    uint8_t mask;
+    char hop;
     struct in_addr addr;
     uint32_t i = 0;
     network_t * network;
 
     fp = fopen(filename, "r");
-    while(fgets(buff, 255, fp)){
+    while(fgets(buff, 255, fp)){//reads a line from the file fp and stores it in buff
         string = buff;
         //extract the ip part
         p = strsep(&string, de);
@@ -39,33 +40,39 @@ bool lookup_load(lookup_t * handle, const char * filename){
         }
         //extract the mask part
         p = strsep(&string, de);
-        ret = strtol(p, NULL, 10);
+        mask = strtol(p, NULL, 10);
+        //extract the hop
+        p = strsep(&string, de);
+        hop = p[0];
 // #ifdef HASHTABLE
         //insert network in hashtable
         network = calloc(1, sizeof(network_t));
         network->network = addr;
-        network->netmask = ret;
+        network->netmask = mask;
+        network->hop = hop;
         g_hash_table_add(handle->hash, network);
 // #else
         //insert network
         handle->networks[i].network = addr;
-        handle->networks[i].netmask = ret;
+        handle->networks[i].netmask = mask;
+        handle->networks[i].hop = hop;
         i++;
 // #endif
     }
     handle->size = i;
     fclose(fp);
-    printf("Hash size: %d\n", g_hash_table_size(handle->hash));
+    // printf("Hash size: %d\n", g_hash_table_size(handle->hash));
     qsort(handle->networks, handle->size, sizeof(network_t), network_compare);
+    create_ranges(handle);
     return true;
 }
 
-bool lookup_dump(lookup_t * handle){
+bool lookup_dump(lookup_t * handle){//to print the networks
     char buff[1024];
     uint16_t i;
     for(i =0; i < handle->size; i++){
         inet_ntop(AF_INET, &handle->networks[i].network, buff, 1024);
-        printf("%s/%d\n", buff, handle->networks[i].netmask);
+        printf("%s/%d %c\n", buff, handle->networks[i].netmask, handle->networks[i].hop);
     }
     return true;
 }
@@ -184,4 +191,95 @@ int network_compare(const void * a, const void * b)
     } else {
         return n1->netmask - n2->netmask;
     }
+}
+
+
+#define LOOKUP_START 1
+#define LOOKUP_END 2
+
+bool create_ranges(lookup_t * handle)
+{
+    network_t * l1;//will be using netmask variable to indicate the start of the range or the end of it
+    network_t * l2;//will ignore the netmask
+    struct in_addr network_start;
+    struct in_addr network_end;
+    uint32_t netmask_temp;
+    char hop_temp;
+    uint32_t i;
+    char stack[32];
+    uint32_t stack_index = 0;
+    char buff[1024];
+
+    // phase 1
+    l1 = calloc(handle->size * 2, sizeof(network_t));
+    for (i = 0; i < handle->size; i++) {
+        network_start = handle->networks[i].network;
+        netmask_temp = handle->networks[i].netmask;
+        hop_temp = handle->networks[i].hop;
+        if(netmask_temp == 32){
+            network_end.s_addr = network_start.s_addr;
+        } else {
+            network_end.s_addr = htonl(
+                ntohl(network_start.s_addr) | (0xffffffff >> netmask_temp)
+            );
+        }
+        l1[i * 2].network = network_start;
+        l1[i * 2].hop = hop_temp;
+        l1[i * 2].netmask = LOOKUP_START;
+        l1[i * 2 + 1].network = network_end;
+        l1[i * 2 + 1].hop = hop_temp;
+        l1[i * 2 + 1].netmask = LOOKUP_END;
+    }
+    qsort(l1, handle->size * 2, sizeof(network_t), network_compare);
+
+    for(i = 0; i < handle->size * 2; i++){
+        inet_ntop(AF_INET, &l1[i].network, buff, 1024);
+        printf("%c %s %c\n", l1[i].netmask == 1? '>':'<', buff, l1[i].hop);
+    }
+    printf("==========================================================\n");
+
+    // phase 2
+    l2 = calloc(handle->size * 2, sizeof(network_t));
+    struct in_addr last_net = { .s_addr = 0xffffffff };
+    char last_hop = '\0';
+    uint32_t j = 0;
+
+    for(i = 0 ; i < (handle->size * 2) - 1; i++) {
+        if(l1[i].netmask == LOOKUP_START) {
+            stack[stack_index++] = l1[i].hop;
+            // if same hop skip
+            if(last_hop == l1[i].hop) continue;
+            last_hop = l1[i].hop;
+            // if same network overwrite
+            if (last_net.s_addr == l1[i].network.s_addr) j--;
+            last_net = l1[i].network;
+            // insert network into l2
+            l2[j].network = l1[i].network;
+            l2[j].hop = l1[i].hop;
+            j++;
+        } else {
+            stack_index--;
+            // if same hop skip
+            if(last_hop == stack[stack_index - 1]) continue;
+            last_hop = stack[stack_index - 1];
+            // if same network overwrite
+            if (last_net.s_addr == l1[i].network.s_addr) j--;
+            last_net = l1[i].network;
+            // insert network into l2
+            l2[j].network.s_addr = htonl(
+                ntohl(l1[i].network.s_addr) + 1
+            );
+            l2[j].hop = stack[stack_index - 1];
+            j++;
+        }
+    }
+
+    for(i = 0; i < j; i++){
+        inet_ntop(AF_INET, &l2[i].network, buff, 1024);
+        printf("%d %s %c\n", i + 1, buff, l2[i].hop);
+    }
+
+    free(l1);
+    free(l2);
+    return true;
 }
