@@ -69,6 +69,8 @@ bool lookup_dump(lookup_t * handle){
 bool lookup_search(lookup_t * handle, struct in_addr ip, uint32_t * value)
 {
     uint32_t ip_l, i;
+    uint32_t first, last, middle;
+    uint16_t ip_low;
     index_t * index;
 
     ip_l = ntohl(ip.s_addr);
@@ -78,11 +80,35 @@ bool lookup_search(lookup_t * handle, struct in_addr ip, uint32_t * value)
         *value = index->offset;
         return true;
     } else {
+        ip_low = ip_l & 0xffff;
+#if BINARY_SEARCH
+        /* binary search */
+        first =index->offset;
+        last = index->offset + index->len;
+        middle = (first+last)/2;
+        while (first < last) {
+            //printf("%d %d %d\n", first, middle, last);
+            if (ip_low > handle->range[middle].addr) {
+                first = middle + 1;
+                middle = (first+last)/2;
+            } else if (ip_low < handle->range[middle].addr) {
+                last = middle - 1;
+                middle = (first+last)/2;
+
+            } else {
+                *value = handle->range[middle].value;
+                break;
+            }
+        }
+        return true;
+#else
+        /* sequential search */
         for (i=index->offset; i < index->offset + index->len; i++) {
-            if ((ip_l & 0xffff) < handle->range[i].addr) break;
+            if (ip_low < handle->range[i].addr) break;
             *value = handle->range[i].value;
         }
         return true;
+#endif
     }
 }
 
