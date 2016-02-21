@@ -4,15 +4,10 @@
 #include <glib.h>
 #include <errno.h>
 
+#include "lookup_private.h"
 #include "lookup.h"
 
 #define BUF_LEN 1024
-
-guint network_hash(gconstpointer key);
-gboolean network_equal(gconstpointer key1, gconstpointer key2);
-int network_compare(const void * a, const void * b);
-bool create_ranges(lookup_t *);
-char * my_atop(uint32_t ip, char * buf, uint32_t buf_len);
 
 
 lookup_t * lookup_init()
@@ -289,7 +284,7 @@ guint network_hash(gconstpointer key)
 
     k = (network_t *)key;
     hval = hashfnv1a_32(key, sizeof(network_t));
-    // hval = (guint)(k->network.s_addr ^ k->netmask);
+    //hval = (guint)(k->network ^ k->netmask);
     return hval;
 }
 gboolean network_equal(gconstpointer key1, gconstpointer key2)
@@ -318,8 +313,8 @@ int network_compare(const void * a, const void * b)
 
 char * my_atop(uint32_t ip, char * buf, uint32_t buf_len)
 {
-   struct in_addr addr;
-   addr.s_addr = htonl(ip);
-   inet_ntop(AF_INET, &addr, buf, buf_len);
-   return buf;
+    struct in_addr addr;
+    addr.s_addr = htonl(ip);
+    inet_ntop(AF_INET, &addr, buf, buf_len);
+    return buf;
 }

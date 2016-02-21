@@ -4,31 +4,7 @@
 #include <arpa/inet.h>
 #include <glib.h>
 
-
-struct network_s {
-    uint32_t network;
-    uint32_t netmask;
-    uint32_t value;
-};
-typedef struct network_s network_t;
-
-struct index_s {
-    uint16_t offset;
-    uint16_t len;
-};
-typedef struct index_s index_t;
-
-struct range_s {
-    uint16_t addr;
-    uint32_t value;
-};
-typedef struct range_s range_t;
-
-struct lookup_s {
-    GHashTable * hash;
-    index_t * index;
-    range_t * range;
-};
+struct lookup_s;
 typedef struct lookup_s lookup_t;
 
 lookup_t * lookup_init();
