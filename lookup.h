@@ -12,13 +12,6 @@ struct network_s {
 };
 typedef struct network_s network_t;
 
-struct lookup_s {
-    uint32_t size;
-    network_t * networks;
-    GHashTable * hash;
-};
-typedef struct lookup_s lookup_t;
-
 struct index_s {
     uint16_t offset;
     uint16_t len;
@@ -31,8 +24,17 @@ struct range_s {
 };
 typedef struct range_s range_t;
 
+struct lookup_s {
+    GHashTable * hash;
+    index_t * index;
+    range_t * range;
+};
+typedef struct lookup_s lookup_t;
+
 lookup_t * lookup_init();
-bool lookup_load(lookup_t * handle, const char * filename);
+bool lookup_insert(lookup_t * handle, struct in_addr network, uint32_t netmask, uint32_t value);
+bool lookup_build(lookup_t * handle);
 bool lookup_dump(lookup_t * handle);
+bool lookup_dump_internal(lookup_t * handle);
 bool lookup_search(lookup_t * handle, struct in_addr ip);
 bool lookup_free(lookup_t * handle);
