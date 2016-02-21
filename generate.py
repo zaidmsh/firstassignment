@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+
 import random
 import socket
 import struct
+import subprocess
 
 def generate_netmask():
     networks = []
@@ -27,6 +29,9 @@ def main():
         value = (network + netmask) % 1000
         fip.write("%s\n" % str_ip)
         fnet.write("%s/%s %s\n" % (ip_to_string(network), netmask, value))
+
+    cmd = "cat networks2 | sort | uniq > networks"
+    subprocess.call(cmd, shell=True)
 
 
 if __name__ == '__main__':
