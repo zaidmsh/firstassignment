@@ -8,7 +8,7 @@
 struct network_s {
     uint32_t network;
     uint32_t netmask;
-    char hop;
+    uint32_t value;
 };
 typedef struct network_s network_t;
 
