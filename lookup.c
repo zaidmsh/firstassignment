@@ -71,8 +71,21 @@ bool lookup_dump(lookup_t * handle){
     return true;
 }
 
-bool lookup_search(lookup_t * handle, struct in_addr ip)
+bool lookup_search(lookup_t * handle, struct in_addr ip, uint32_t * value)
 {
+    uint32_t ip_l;
+    index_t * index;
+
+    ip_l = ntohl(ip.s_addr);
+    index = &(handle->index[ip_l>>16]);
+    if (index->len == 0) {
+        // offset IS a value!
+        *value = index->offset;
+        return true;
+    } else {
+        *value = index->offset;
+        return true;
+    }
     return true;
 }
 
@@ -142,6 +155,7 @@ bool lookup_build(lookup_t * handle)
         printf("%c %s %u\n", l1[i].netmask == 1? '>':'<', buf, l1[i].value);
     }
 #endif
+
     // phase 2
     l2 = calloc(l1_size, sizeof(network_t));
     for(i = 0 ; i < l1_size - 1; i++) {

@@ -8,7 +8,7 @@
 
 #include "lookup.h"
 
-#define REPEAT 1000
+#define REPEAT 1
 
 bool load_networks(lookup_t * l, const char * filename)
 {
@@ -49,34 +49,38 @@ int main()
 {
     struct in_addr addr;
     FILE *fp;
-    char buff[255];
+    char buf[1024];
     lookup_t *l;
-    uint32_t len, i;
+    uint32_t len, i, value;
 
 
     l = lookup_init();
     load_networks(l, "networks");
-    lookup_dump(l);
+    //lookup_dump(l);
     lookup_build(l);
-    lookup_dump_internal(l);
+    //lookup_dump_internal(l);
 
-    fp = fopen("ips", "r");
-    if (fp==NULL) {
-        fprintf(stderr, "Error: %s\n",strerror(errno));
-        return -1;
-    }
-    while(fgets(buff, 255, fp)) {
-        len =  strlen(buff);
-        buff[len - 1] = 0;
-        if(inet_pton(AF_INET, buff, &addr) != 1) {
-            printf("inet_pton: Failed\n");
-            break;
+    for(i = 0; i<REPEAT; i++) {
+        fp = fopen("ips", "r");
+        if (fp==NULL) {
+            fprintf(stderr, "Error: %s\n",strerror(errno));
+            return -1;
         }
-        for(i = 0; i<REPEAT; i++) {
-            lookup_search(l, addr);
+        while(fgets(buf, 1024, fp)) {
+            len = strlen(buf);
+            buf[len - 1] = 0;
+            if(inet_pton(AF_INET, buf, &addr) != 1) {
+                printf("inet_pton: Failed\n");
+                break;
+            }
+            if (lookup_search(l, addr, &value)) {
+                printf("Found: %15s %d\n", buf, value);
+            } else {
+                printf("NOT Found: %15s\n", buf);            
+            }
         }
+        fclose(fp);
     }
-    fclose(fp);
 
     lookup_free(l);
     return 0;
