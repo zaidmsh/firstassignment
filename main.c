@@ -8,7 +8,7 @@
 
 #include "lookup.h"
 
-#define REPEAT 1
+#define REPEAT 1000
 
 bool load_networks(lookup_t * l, const char * filename)
 {
@@ -74,9 +74,9 @@ int main()
                 break;
             }
             if (lookup_search(l, addr, &value)) {
-                printf("Found: %15s %d\n", buf, value);
+                // printf("Found: %15s %d\n", buf, value);
             } else {
-                printf("NOT Found: %15s\n", buf);            
+                printf("NOT Found: %15s\n", buf);
             }
         }
         fclose(fp);

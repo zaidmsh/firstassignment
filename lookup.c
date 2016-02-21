@@ -73,7 +73,7 @@ bool lookup_dump(lookup_t * handle){
 
 bool lookup_search(lookup_t * handle, struct in_addr ip, uint32_t * value)
 {
-    uint32_t ip_l;
+    uint32_t ip_l, i;
     index_t * index;
 
     ip_l = ntohl(ip.s_addr);
@@ -83,10 +83,12 @@ bool lookup_search(lookup_t * handle, struct in_addr ip, uint32_t * value)
         *value = index->offset;
         return true;
     } else {
-        *value = index->offset;
+        for (i=index->offset; i < index->offset + index->len; i++) {
+            if ((ip_l & 0xffff) < handle->range[i].addr) break;
+            *value = handle->range[i].value;
+        }
         return true;
     }
-    return true;
 }
 
 #define LOOKUP_START 1

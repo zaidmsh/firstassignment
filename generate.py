@@ -8,7 +8,7 @@ def generate_netmask():
     for i in range(33):
         x = (0xffffffff << (32 - i)) & 0xffffffff
         #print '{0:032b}'.format(x)
-        print '%08x,' % x
+        # print '%08x,' % x
         networks.append(x)
     return networks
 
@@ -24,9 +24,9 @@ def main():
         str_ip = socket.inet_ntop(socket.AF_INET, struct.pack('!I', ip))
         netmask = random.randint(8,24)
         network = ip & netmasks[netmask]
-        hop = chr(65 + ((network + netmask) % 26) )
+        value = (network + netmask) % 1000
         fip.write("%s\n" % str_ip)
-        fnet.write("%s/%s %s\n" % (ip_to_string(network), netmask, hop))
+        fnet.write("%s/%s %s\n" % (ip_to_string(network), netmask, value))
 
 
 if __name__ == '__main__':
