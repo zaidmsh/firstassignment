@@ -1,10 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <arpa/inet.h>
 
 #include "lookup.h"
 
@@ -45,42 +46,65 @@ bool load_networks(lookup_t * l, const char * filename)
     return true;
 }
 
-int main()
+uint32_t load_ips(const char * filename, struct in_addr * ips, uint32_t ips_length)
 {
-    struct in_addr addr;
     FILE *fp;
     char buf[1024];
+    uint32_t i;
+
+    fp = fopen(filename, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Error: %s\n",strerror(errno));
+        return false;
+    }
+    i = 0;
+    while (fgets(buf, 1024, fp)) {
+        buf[strlen(buf) - 1] = 0;
+        if(inet_pton(AF_INET, buf, &ips[i++]) != 1){
+            printf("Failed: %s\n", buf);
+        }
+        if (i==ips_length) break;
+    }
+    fclose(fp);
+    return i;
+}
+
+int main()
+{
+#define IPS_SIZE 10000
+    char buf[1024];
     lookup_t *l;
-    uint32_t len, i, value;
+    uint32_t i, j, value;
+    struct timeval t1, t2;
+    struct in_addr ips[IPS_SIZE];
+    uint32_t ips_count;
+    uint32_t delta;
 
 
     l = lookup_init();
     load_networks(l, "networks");
+    ips_count = load_ips("ips", ips, IPS_SIZE);
+    printf("IPs loaded: %d\n", ips_count);
+    printf("Repeat count: %d\n", REPEAT);
     //lookup_dump(l);
     lookup_build(l);
     //lookup_dump_internal(l);
 
+    gettimeofday(&t1, NULL);
+
     for(i = 0; i<REPEAT; i++) {
-        fp = fopen("ips", "r");
-        if (fp==NULL) {
-            fprintf(stderr, "Error: %s\n",strerror(errno));
-            return -1;
-        }
-        while(fgets(buf, 1024, fp)) {
-            len = strlen(buf);
-            buf[len - 1] = 0;
-            if(inet_pton(AF_INET, buf, &addr) != 1) {
-                printf("inet_pton: Failed\n");
-                break;
-            }
-            if (lookup_search(l, addr, &value)) {
+        for(j=0; j<ips_count; j++) {
+            if (lookup_search(l, ips[j], &value)) {
                 // printf("Found: %15s %d\n", buf, value);
             } else {
                 printf("NOT Found: %15s\n", buf);
             }
         }
-        fclose(fp);
     }
+    gettimeofday(&t2, NULL);
+    delta = (1000000 * t2.tv_sec + t2.tv_usec) - (1000000 * t1.tv_sec + t1.tv_usec);
+    printf("Time taken: %u micro second\n", delta);
+    printf("Speed: %u op/second\n", (uint32_t) (((float)(ips_count*REPEAT)/delta) * 1000000));
 
     lookup_free(l);
     return 0;
