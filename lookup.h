@@ -27,7 +27,7 @@ typedef struct index_s index_t;
 
 struct range_s {
     uint16_t addr;
-    uint16_t hop;
+    uint32_t value;
 };
 typedef struct range_s range_t;
 

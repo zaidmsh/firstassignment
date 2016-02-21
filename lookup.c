@@ -224,6 +224,14 @@ bool create_ranges(lookup_t * handle)
     uint32_t stack_index = 0;
     char buf[BUF_LEN];
 
+    uint32_t last_net = 0xffffffff;
+    uint32_t last_value = 0;
+    uint32_t l2_size = 0;
+
+    index_t * index;
+    range_t * range;
+    uint32_t j, k, chunk_start, chunk_len, l2_offset;
+
     // phase 1
     l1 = calloc(handle->size * 2, sizeof(network_t));
     for (i = 0; i < handle->size; i++) {
@@ -245,6 +253,7 @@ bool create_ranges(lookup_t * handle)
     }
     qsort(l1, handle->size * 2, sizeof(network_t), network_compare);
 
+    // Print L1
     printf("===== L1 ====\n");
     for(i = 0; i < handle->size * 2; i++){
         my_atop(l1[i].network, buf, BUF_LEN);
@@ -253,10 +262,6 @@ bool create_ranges(lookup_t * handle)
 
     // phase 2
     l2 = calloc(handle->size * 2, sizeof(network_t));
-    uint32_t last_net = 0xffffffff;
-    uint32_t last_value = 0;
-    uint32_t l2_size = 0;
-
     for(i = 0 ; i < (handle->size * 2) - 1; i++) {
         if(l1[i].netmask == LOOKUP_START) {
             stack[stack_index++] = l1[i].value;
@@ -284,52 +289,68 @@ bool create_ranges(lookup_t * handle)
             l2_size++;
         }
     }
-    // print l2
-    printf("===== L1 ====\n");
+
+    // Print L2
+    printf("===== L2 ====\n");
     for(i = 0; i < l2_size; i++){
         my_atop(l2[i].network, buf, BUF_LEN);
         printf("%d %s => %u\n", i + 1, buf, l2[i].value);
     }
 
-    //Constructing the index and range tables
-    index_t * index;
-    range_t * range;
-    uint32_t j, k, chunk_start;
+    printf("===== Last Step ====\n");
+    uint32_t index_idx;
+    uint32_t range_idx;
+    uint32_t offset;
+
     index = (index_t *)calloc(0xffff, sizeof(index_t));
     range = (range_t *)calloc(l2_size, sizeof(range_t));
-    uint32_t chunk_len, l2_offset = 0;
-
-    printf("===== Last Step ====\n");
+    l2_offset = 0;
     last_value = 0;
-    for (i = 0; i <= 0xffff; i++) {
-
-        printf("%04x\n",i);
-
+    range_idx = 0;
+    for (index_idx = 0; index_idx <= 0xffff; index_idx++) {
         // find chunk size start
         chunk_start = l2_offset;
         for (j = l2_offset; j < l2_size; j++) {
-            if (i != (l2[j].network >> 16)) break;
+            if (index_idx != (l2[j].network >> 16)) break;
         }
         chunk_len = j - l2_offset;
         l2_offset = j;
-
-        // print
+        // Process chunk
         if (chunk_len == 0 ) {
-            printf("\tuse Last: %u\n", last_value);
+            // Use last
+            index[index_idx].offset = last_value;
+            index[index_idx].len = 0;
         } else if (chunk_len == 1) {
-            printf("\tJump to value: %u\n", l2[chunk_start].value);
+            // Jump to value
+            index[index_idx].offset = l2[chunk_start].value;
+            index[index_idx].len = 0;
             last_value = l2[chunk_start].value;
         } else {
-            printf("\tjump to range table:\n");
+            // Jump to range
+            index[index_idx].offset = range_idx;
+            index[index_idx].len = chunk_len;
             for (k=chunk_start; k<chunk_start+chunk_len; k++) {
-              printf("\t\t %s => %u \n", my_atop(l2[k].network, buf, BUF_LEN), l2[k].value);
-              last_value = l2[k].value;
+                // printf("\t\t %s => %u \n", my_atop(l2[k].network, buf, BUF_LEN), l2[k].value);
+                range[range_idx].addr = l2[k].network & 0xffff;
+                range[range_idx].value = l2[k].value;
+                range_idx++;
+                last_value = l2[k].value;
             }
         }
-        // index[i].offset = 0;
-        // index[i].len = chunk_len;
     }
-
+    // Print Last Tables
+    for (index_idx = 0; index_idx <= 0xffff; index_idx++) {
+        printf("Network: %04x ", index_idx);
+        if (index[index_idx].len == 0) {
+            printf("[*, %u]", index[index_idx].offset);
+        } else {
+            for (i=0; i<index[index_idx].len; i++) {
+                offset = index[index_idx].offset + i;
+                printf("[%04x, %u] ", range[offset].addr, range[offset].value);
+            }
+        }
+        printf("\n");
+    }
 
     free(index);
     free(range);
