@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <errno.h>
 
 #include "lookup.h"
 #define HASHTABLE
@@ -31,6 +32,10 @@ bool lookup_load(lookup_t * handle, const char * filename){
     network_t * network;
 
     fp = fopen(filename, "r");
+    if( fp == NULL){
+      fprintf(stderr, "Error: %s\n",strerror(errno));
+      return false;
+    }
     while(fgets(buff, 255, fp)){//reads a line from the file fp and stores it in buff
         string = buff;
         //extract the ip part
@@ -47,13 +52,13 @@ bool lookup_load(lookup_t * handle, const char * filename){
 // #ifdef HASHTABLE
         //insert network in hashtable
         network = calloc(1, sizeof(network_t));
-        network->network = addr;
+        network->network = ntohl(addr.s_addr);
         network->netmask = mask;
         network->hop = hop;
         g_hash_table_add(handle->hash, network);
 // #else
         //insert network
-        handle->networks[i].network = addr;
+        handle->networks[i].network = ntohl(addr.s_addr);
         handle->networks[i].netmask = mask;
         handle->networks[i].hop = hop;
         i++;
@@ -69,9 +74,12 @@ bool lookup_load(lookup_t * handle, const char * filename){
 
 bool lookup_dump(lookup_t * handle){//to print the networks
     char buff[1024];
+    struct in_addr addr;
     uint16_t i;
+
     for(i =0; i < handle->size; i++){
-        inet_ntop(AF_INET, &handle->networks[i].network, buff, 1024);
+        addr.s_addr = htonl(handle->networks[i].network);
+        inet_ntop(AF_INET, &addr, buff, 1024);
         printf("%s/%d %c\n", buff, handle->networks[i].netmask, handle->networks[i].hop);
     }
     return true;
@@ -80,17 +88,17 @@ bool lookup_dump(lookup_t * handle){//to print the networks
 bool lookup_search(lookup_t * handle, struct in_addr ip){
 #ifdef HASHTABLE
     uint32_t i;
-    struct in_addr netmask;
+    uint32_t int_ip;
     struct in_addr network;
     network_t key;
     char buff[1024];
 
+    int_ip = ntohl(ip.s_addr);
     for(i = 32;i > 0; i--){
-        netmask.s_addr = htonl(0xffffffff << (32 - i));
-        network.s_addr = ip.s_addr & netmask.s_addr;
-        key.network = network;
+        key.network = int_ip & (0xffffffff << (32 - i));
         key.netmask = i;
         if(g_hash_table_lookup_extended(handle->hash, &key, NULL, NULL)){
+            network.s_addr = htonl(key.network);
             inet_ntop(AF_INET, &network, buff, 1000);
             //printf("found:%s/%d\n", buff, i);
             return true;
@@ -100,19 +108,19 @@ bool lookup_search(lookup_t * handle, struct in_addr ip){
 #else
     uint16_t i;
     uint16_t index;
-    struct in_addr netmask;
+    uint32_t int_ip;
     struct in_addr network;
     // char buff[1024];
     uint32_t nmask = 0;
 
+    int_ip = ntohl(ip.s_addr);
     for(i = 0;i < handle->size; i++){
-        netmask.s_addr = 0xffffffff >> (32 - handle->networks[i].netmask);
-        network.s_addr = ip.s_addr & netmask.s_addr;
         if(nmask >= handle->networks[i].netmask){
             continue;
         }
+        int_network = int_ip & (0xffffffff >> (32 - handle->networks[i].netmask));
         //printf("here\n");
-        if(handle->networks[i].network.s_addr == network.s_addr){
+        if(handle->networks[i].network== int_network){
             nmask = handle->networks[i].netmask;
             index = i + 1;
         }
@@ -176,7 +184,7 @@ gboolean network_equal(gconstpointer key1, gconstpointer key2)
 
     k1 = (network_t*)key1;
     k2 = (network_t*)key2;
-    return (k1->network.s_addr == k2->network.s_addr) && (k1->netmask == k2->netmask);
+    return (k1->network == k2->network) && (k1->netmask == k2->netmask);
 }
 
 int network_compare(const void * a, const void * b)
@@ -184,9 +192,9 @@ int network_compare(const void * a, const void * b)
     network_t * n1 = (network_t *) a;
     network_t * n2 = (network_t *) b;
 
-    if(ntohl(n1->network.s_addr) > ntohl(n2->network.s_addr)) {
+    if(n1->network > n2->network) {
         return 1;
-    } else if(ntohl(n1->network.s_addr) < ntohl(n2->network.s_addr)) {
+    } else if(n1->network < n2->network) {
         return -1;
     } else {
         return n1->netmask - n2->netmask;
@@ -201,8 +209,8 @@ bool create_ranges(lookup_t * handle)
 {
     network_t * l1;//will be using netmask variable to indicate the start of the range or the end of it
     network_t * l2;//will ignore the netmask
-    struct in_addr network_start;
-    struct in_addr network_end;
+    uint32_t network_start;
+    uint32_t network_end;
     uint32_t netmask_temp;
     char hop_temp;
     uint32_t i;
@@ -217,12 +225,11 @@ bool create_ranges(lookup_t * handle)
         netmask_temp = handle->networks[i].netmask;
         hop_temp = handle->networks[i].hop;
         if(netmask_temp == 32){
-            network_end.s_addr = network_start.s_addr;
+            network_end = network_start;
         } else {
-            network_end.s_addr = htonl(
-                ntohl(network_start.s_addr) | (0xffffffff >> netmask_temp)
-            );
+            network_end = network_start | (0xffffffff >> netmask_temp);
         }
+
         l1[i * 2].network = network_start;
         l1[i * 2].hop = hop_temp;
         l1[i * 2].netmask = LOOKUP_START;
@@ -240,9 +247,9 @@ bool create_ranges(lookup_t * handle)
 
     // phase 2
     l2 = calloc(handle->size * 2, sizeof(network_t));
-    struct in_addr last_net = { .s_addr = 0xffffffff };
+    uint32_t last_net = 0xffffffff;
     char last_hop = '\0';
-    uint32_t j = 0;
+    uint32_t l2_size = 0;
 
     for(i = 0 ; i < (handle->size * 2) - 1; i++) {
         if(l1[i].netmask == LOOKUP_START) {
@@ -251,50 +258,62 @@ bool create_ranges(lookup_t * handle)
             if(last_hop == l1[i].hop) continue;
             last_hop = l1[i].hop;
             // if same network overwrite
-            if (last_net.s_addr == l1[i].network.s_addr) j--;
+            if (last_net == l1[i].network) l2_size--;
             last_net = l1[i].network;
             // insert network into l2
-            l2[j].network = l1[i].network;
-            l2[j].hop = l1[i].hop;
-            j++;
+            l2[l2_size].network = l1[i].network;
+            l2[l2_size].hop = l1[i].hop;
+            l2_size++;
         } else {
             stack_index--;
             // if same hop skip
             if(last_hop == stack[stack_index - 1]) continue;
             last_hop = stack[stack_index - 1];
             // if same network overwrite
-            if (last_net.s_addr == l1[i].network.s_addr) j--;
+            if (last_net == l1[i].network) l2_size--;
             last_net = l1[i].network;
             // insert network into l2
-            l2[j].network.s_addr = htonl(
-                ntohl(l1[i].network.s_addr) + 1
-            );
-            l2[j].hop = stack[stack_index - 1];
-            j++;
+            l2[l2_size].network = l1[i].network + 1;
+            l2[l2_size].hop = stack[stack_index - 1];
+            l2_size++;
         }
     }
-
-    for(i = 0; i < j; i++){
-        inet_ntop(AF_INET, &l2[i].network, buff, 1024);
+    // print l2
+    struct in_addr addr;
+    for(i = 0; i < l2_size; i++){
+        addr.s_addr = htonl(l2[i].network);
+        inet_ntop(AF_INET, &addr, buff, 1024);
         printf("%d %s %c\n", i + 1, buff, l2[i].hop);
     }
 
     //Constructing the index and range tables
     index_t * index;
     range_t * range;
-    uint32_t start_high, end_high, k;
+    uint32_t start_high, end_high, j;
     index = (index_t *)calloc(0xffff, sizeof(index_t));
-    range = (range_t *)calloc(j, sizeof(range_t));
+    range = (range_t *)calloc(l2_size, sizeof(range_t));
+    uint32_t chunk_len, l2_offset = 0;
+    last_hop = '\0';
 
-    for (i = 0; i < j; i++){
-        start_high = ntohl(l2[i].network.s_addr) >> 16;
-        end_high = ntohl(l2[i + 1].network.s_addr) >> 16;
-        for (k = start_high; k < end_high; k++) {
-            // insert l2[i].hop
-            index[k].offset = (uint8_t)(l2[i].hop);
-            printf(".");
+    for (i = 0; i <= 0xffff; i++) {
+        printf("%04x\n",i);
+        // find chunk size start
+        for (j = l2_offset; j < l2_size; j++) {
+            if (i != (l2[j].network >> 16)) break;
+            printf("\t%04x\n", l2[j].network & 0xffff);
         }
-        printf("\n");
+        chunk_len = j - l2_offset;
+        l2_offset = j;
+        // print
+        if (chunk_len == 0 ) {
+            printf("use Last: %c\n", last_hop);
+        } else if (chunk_len == 1) {
+            printf("Jump to hop:%s\n", l2[i].hop);
+        } else {
+            printf("jump to range table:%s\n", );
+        }
+        // index[i].offset = 0;
+        // index[i].len = chunk_len;
     }
 
 

@@ -6,7 +6,7 @@
 
 
 struct network_s {
-    struct in_addr network;
+    uint32_t network;
     uint32_t netmask;
     char hop;
 };
