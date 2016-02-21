@@ -10,6 +10,7 @@
 #include "lookup.h"
 
 #define REPEAT 1000
+#define IPS_SIZE 10000
 
 bool load_networks(lookup_t * l, const char * filename)
 {
@@ -71,7 +72,6 @@ uint32_t load_ips(const char * filename, struct in_addr * ips, uint32_t ips_leng
 
 int main()
 {
-#define IPS_SIZE 10000
     char buf[1024];
     lookup_t *l;
     uint32_t i, j, value;

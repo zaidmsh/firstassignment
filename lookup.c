@@ -196,7 +196,7 @@ bool lookup_build(lookup_t * handle)
     }
 #endif
 
-    index = (index_t *)calloc(0xffff, sizeof(index_t));
+    index = (index_t *)calloc(0xffff+1, sizeof(index_t));
     range = (range_t *)calloc(l2_size, sizeof(range_t));
     l2_offset = 0;
     last_value = 0;
