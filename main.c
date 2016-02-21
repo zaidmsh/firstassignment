@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <locale.h>
 
 #include "lookup.h"
 
@@ -40,7 +41,7 @@ bool load_networks(lookup_t * l, const char * filename)
         //extract the value
         p = strsep(&string, de);
         value = strtol(p, NULL, 10);
-
+        // insert
         lookup_insert(l, network, mask, value);
     }
 
@@ -86,12 +87,11 @@ int main()
     ips_count = load_ips("ips", ips, IPS_SIZE);
     printf("IPs loaded: %d\n", ips_count);
     printf("Repeat count: %d\n", REPEAT);
-    //lookup_dump(l);
     lookup_build(l);
+    //lookup_dump(l);
     //lookup_dump_internal(l);
-
+    printf("Starting ...\n");
     gettimeofday(&t1, NULL);
-
     for(i = 0; i<REPEAT; i++) {
         for(j=0; j<ips_count; j++) {
             if (lookup_search(l, ips[j], &value)) {
@@ -102,9 +102,11 @@ int main()
         }
     }
     gettimeofday(&t2, NULL);
+    printf("Finish!\n");
     delta = (1000000 * t2.tv_sec + t2.tv_usec) - (1000000 * t1.tv_sec + t1.tv_usec);
-    printf("Time taken: %u micro second\n", delta);
-    printf("Speed: %u op/second\n", (uint32_t) (((float)(ips_count*REPEAT)/delta) * 1000000));
+    setlocale(LC_NUMERIC, "");
+    printf("Time taken: %'u micro second\n", delta);
+    printf("Speed: %'u op/second\n", (uint32_t) (((float)(ips_count*REPEAT)/delta) * 1000000));
 
     lookup_free(l);
     return 0;
